@@ -1,13 +1,16 @@
 # ROS 2 PointCloud Crop
 
-PointCloud2を複数の箱で切り取り、自機反射・近接点を除去する独立パッケージです。
-元のPyLoTの箱判定を再利用し、点群のレイアウト処理を汎用化しました。
+English · [日本語](docs/README.ja.md)
 
-- 箱の和集合を除去、または箱の内側だけを残す。
-- 箱を別フレームで定義し、点群の取得時刻のTFで判定。
-- XYZはFLOAT32/FLOAT64、big/little endian、行パディングに対応。
-- 強度・時刻・リングなど、残す点の全バイトとフィールド定義を保持。
-- メッセージごとにレイアウトを検証し、前の点群のoffsetを使い回さない。
+A standalone package for cropping PointCloud2 data with multiple boxes and
+removing robot self-returns or nearby points. It reuses PyLoT's box geometry
+and generalizes the point-record layout handling.
+
+- Remove the union of boxes, or keep only points inside that union.
+- Define boxes in another frame and evaluate them using TF at the cloud's acquisition time.
+- Support FLOAT32/FLOAT64 XYZ, big/little endian and padded rows.
+- Preserve every byte and field definition of retained points, including intensity, timestamps and rings.
+- Validate each message's layout instead of reusing offsets from an earlier cloud.
 
 ## Usage
 
@@ -17,28 +20,31 @@ ros2 run pointcloud_crop pointcloud_crop_node --ros-args \
   -p box_frame:=base_link -p boxes:='[-0.5,0.5,-0.4,0.4,-0.2,1.0]'
 ```
 
-`boxes` は `[min_x,max_x,min_y,max_y,min_z,max_z]` を箱の個数分並べます（m）。
-`remove_inside:=false` で内側だけ残します。`box_frame` が空なら点群フレームです。
-出力は高さ1のコンパクトな点群となり、入力の行パディングは除去されます。
-出力座標とheader.frame_idは元のままです。TFは判定にだけ使います。
-NaN座標は自機除去モードでは残り、内側抽出モードでは除去されます。
+`boxes` contains `[min_x,max_x,min_y,max_y,min_z,max_z]` for each box, in metres.
+Set `remove_inside:=false` to retain only inside points. An empty `box_frame`
+uses the input cloud frame. Output is a compact cloud with height 1; input row
+padding is removed. Coordinates and `header.frame_id` remain in the input frame:
+TF is used only to evaluate the crop. NaN coordinates are retained in self-removal
+mode and removed in inside-only mode.
 
-TF取得失敗や不正レイアウトのメッセージは警告して破棄します。元実装の素通しから
-変更しています。TFが必要な場合、入力stamp=0の「最新TF」へのフォールバックは避け、
-正しい取得時刻を入力してください。
+Missing TF and malformed layouts cause the message to be dropped with a warning,
+changing the original implementation's pass-through behavior. When TF is needed,
+supply a valid acquisition timestamp rather than relying on stamp=0 and latest TF.
 
-ROSなしでNx3の `.npy` を処理できます（座標系は入力と同じ）。
+Process an Nx3 `.npy` array without ROS, in its existing coordinate frame:
 
 ```bash
 ros2-pointcloud-crop crop points.npy cropped.npy --boxes -1 1 -1 1 -1 1
 ```
 
-テストは変換・複数箱・NaN・行パディング・追加フィールド・両エンディアン・FLOAT64を
-確認します。ROS結合テストは合成TFと点群を使い、座標と強度が保持されることを確認します。
+Tests cover transforms, multiple boxes, NaNs, row padding, extra fields, both
+byte orders and FLOAT64. A ROS integration test uses synthetic TF and a cloud
+to verify that coordinates and intensity are preserved.
 
 ## Installation and checks
 
-Python 3.10+。リポジトリのルートで実行します。通常のPython環境ではROSは不要です。
+Requires Python 3.10+. Run these commands from the repository root.
+The core works in a regular Python environment without ROS.
 
 ```bash
 python3 -m venv .venv
@@ -48,7 +54,8 @@ python -m pytest -q
 python -m pointcloud_crop.cli demo
 ```
 
-ROS 2 Jazzyで使う場合は通常のワークスペースのsrcに配置し、ROS環境でビルドします。
+For ROS 2 Jazzy, place the repository in a regular workspace's `src` directory
+and build it in a ROS environment:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
@@ -57,12 +64,15 @@ colcon build --symlink-install --packages-select pointcloud_crop
 source install/setup.bash
 ```
 
-`config/params.yaml` を自分の入出力に合わせて変更してください。パラメータは起動時設定です。
-`ros2 launch pointcloud_crop pointcloud_crop.launch.py params_file:=/absolute/path/to/params.yaml` で起動できます。
-CIはPython 3.10/3.12でコアテストと合成デモを実行します。ROS結合テストはROS環境で
-実行し、それ以外ではスキップします。モデル・実センサ・実アームの性能は認証しません。
+Adapt `config/params.yaml` to your inputs and outputs. Parameters are read at startup.
+Start the node with
+`ros2 launch pointcloud_crop pointcloud_crop.launch.py params_file:=/absolute/path/to/params.yaml`.
+CI runs core tests and the synthetic demo on Python 3.10 and 3.12. ROS integration
+tests run when ROS is available and are skipped otherwise. These checks do not
+certify model, physical-sensor or real-arm performance.
 
 ## License and source
 
-現在はprivateリポジトリです。Apache-2.0。元のコミット・ファイルと変更範囲は
-[PROVENANCE.md](PROVENANCE.md) を参照してください。元モノレポへの依存はありません。
+This repository is currently private. Apache-2.0. See
+[PROVENANCE.md](PROVENANCE.md) for the source commit, files and extraction changes.
+There is no dependency on the original monorepo.
