@@ -1,0 +1,7 @@
+pointcloud_crop:
+  ros__parameters:
+    input_topic: /points
+    output_topic: /points/cropped
+    box_frame: ''
+    boxes: [-0.5, 0.5, -0.5, 0.5, -1.0, 1.0]
+    remove_inside: true
